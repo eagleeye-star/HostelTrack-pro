@@ -1054,6 +1054,21 @@ function Backup({ db, setDb, settings, toast }) {
 export default function App() {
   const [settings, setSettings] = useState(loadSettings);
   const [license, setLicense] = useState(loadLicense);
+  // ── Auto-activate from portal launch URL ──────────────────────────────
+  useEffect(() => {
+    const urlKey = new URLSearchParams(window.location.search).get('key');
+    if (urlKey && !loadLicense()) {
+      const k = urlKey.toUpperCase().trim();
+      if (/^[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(k)) {
+        const plan = k.split("-")[1]||"";
+        const days = plan==="TRIAL"?14:plan==="1M"?30:plan==="6M"?182:plan==="12M"?365:/^\d+Y$/.test(plan)?Math.round(parseInt(plan)*365):365;
+        const expiry = new Date(); expiry.setDate(expiry.getDate()+days);
+        const lic = { type:"licensed", key:k, expiry:expiry.toISOString(), issued:new Date().toISOString() };
+        saveLicense(lic); setLicense(lic);
+        window.history.replaceState({},document.title,window.location.pathname);
+      }
+    }
+  }, []);
   const [db, setDb] = useState(loadData);
   const [currentUser, setCurrentUser] = useState(null);
   const [active, setActive] = useState("dashboard");
