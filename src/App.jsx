@@ -119,6 +119,147 @@ function loadData() {
 // ════════════════════════════════════════════════════════════════════════════
 // LICENSE SCREEN
 // ════════════════════════════════════════════════════════════════════════════
+
+// ── INSTITUTION HELPERS (Update 5) ───────────────────────────────────────────
+function loadInstitution(key) {
+  try { return JSON.parse(localStorage.getItem(key + "_inst")) || { name: "", address: "" }; } catch { return { name: "", address: "" }; }
+}
+function saveInstitution(key, inst) {
+  try { localStorage.setItem(key + "_inst", JSON.stringify(inst)); } catch {}
+}
+
+
+// ── LICENCE EXPIRY BANNER (Update 8) ─────────────────────────────────────────
+function ExpiryBanner({ expiry, phone }) {
+  if (!expiry || expiry === "—") return null;
+  const days = Math.ceil((new Date(expiry) - new Date()) / 86400000);
+  if (days > 30) return null;
+  const bg  = days <= 7 ? "#dc2626" : "#d97706";
+  const msg = days <= 0
+    ? `Licence has expired — contact ${phone||"0597147460"} to renew`
+    : days <= 7
+      ? `⚠ Licence expires in ${days} day${days!==1?"s":""} — renew immediately`
+      : `Licence expires in ${days} day${days!==1?"s":""} — contact ${phone||"0597147460"} to renew`;
+  return (
+    <div style={{ background: bg, color: "#fff", textAlign: "center", padding: "7px 16px", fontSize: 12, fontWeight: 700, letterSpacing: 0.3 }}>
+      {msg}
+    </div>
+  );
+}
+
+
+// ── RESET MODAL (Update 1) ───────────────────────────────────────────────────
+function ResetModal({ onConfirm, onCancel, adminPin, accent, cardBg }) {
+  const [pin,  setPin]  = useState("");
+  const [err,  setErr]  = useState("");
+  const [step, setStep] = useState(1);
+  const check = () => { if (pin !== String(adminPin)) { setErr("Incorrect PIN."); return; } setStep(2); };
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999, padding:20 }}>
+      <div style={{ background: cardBg||"#1f2330", border:"1px solid #ef444455", borderRadius:14, padding:28, width:"min(94vw,400px)" }}>
+        {step === 1 ? (<>
+          <div style={{ fontSize:18, fontWeight:800, color:"#ef4444", marginBottom:8 }}>🔐 Admin PIN Required</div>
+          <p style={{ fontSize:13, color:"#94a3b8", marginBottom:16 }}>Enter your admin PIN to access the reset function.</p>
+          <input type="password" inputMode="numeric" maxLength={6} value={pin}
+            onChange={e=>{setPin(e.target.value.replace(/\D/g,""));setErr("");}}
+            onKeyDown={e=>e.key==="Enter"&&check()} placeholder="••••" autoFocus
+            style={{ width:"100%", padding:12, background:"rgba(255,255,255,0.06)", border:`1.5px solid ${err?"#ef4444":"rgba(255,255,255,0.15)"}`, borderRadius:8, color:"#fff", fontSize:20, textAlign:"center", letterSpacing:6, outline:"none", boxSizing:"border-box", marginBottom:8, fontFamily:"inherit" }} />
+          {err && <div style={{ color:"#fca5a5", fontSize:12, marginBottom:8 }}>{err}</div>}
+          <div style={{ display:"flex", gap:10, marginTop:8 }}>
+            <button onClick={onCancel} style={{ flex:1, padding:"10px 0", background:"transparent", border:"1px solid rgba(255,255,255,0.15)", borderRadius:8, color:"#94a3b8", fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>Cancel</button>
+            <button onClick={check}    style={{ flex:1, padding:"10px 0", background:accent||"#2E86AB", color:"#fff", border:"none", borderRadius:8, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>Verify PIN</button>
+          </div>
+        </>) : (<>
+          <div style={{ fontSize:18, fontWeight:800, color:"#ef4444", marginBottom:8 }}>⚠️ Confirm Full Reset</div>
+          <p style={{ fontSize:13, color:"#94a3b8", marginBottom:6, lineHeight:1.7 }}>This will <strong style={{ color:"#ef4444" }}>permanently delete ALL data</strong> in this app — records, settings, everything.</p>
+          <p style={{ fontSize:13, color:"#ef4444", fontWeight:700, marginBottom:20 }}>This cannot be undone.</p>
+          <div style={{ display:"flex", gap:10 }}>
+            <button onClick={onCancel}  style={{ flex:1, padding:"10px 0", background:"transparent", border:"1px solid rgba(255,255,255,0.15)", borderRadius:8, color:"#94a3b8", fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>Cancel</button>
+            <button onClick={onConfirm} style={{ flex:1, padding:"10px 0", background:"#dc2626", color:"#fff", border:"none", borderRadius:8, fontWeight:800, cursor:"pointer", fontFamily:"inherit" }}>Delete All Data</button>
+          </div>
+        </>)}
+      </div>
+    </div>
+  );
+}
+
+
+// ── FIRST-TIME SETUP WIZARD (Update 4) ───────────────────────────────────────
+function SetupWizard({ onComplete, instLabel, accentColor, bgGrad }) {
+  const [step,     setStep]     = useState(1);
+  const [instName, setInstName] = useState("");
+  const [instAddr, setInstAddr] = useState("");
+  const [username, setUsername] = useState("");
+  const [pin,      setPin]      = useState("");
+  const [pin2,     setPin2]     = useState("");
+  const [err,      setErr]      = useState("");
+
+  const nextStep = () => {
+    if (!instName.trim()) { setErr((instLabel||"Institution") + " name is required."); return; }
+    setErr(""); setStep(2);
+  };
+  const finish = () => {
+    if (!username.trim())  { setErr("Admin username is required."); return; }
+    if (pin.length < 4)    { setErr("PIN must be at least 4 digits."); return; }
+    if (pin !== pin2)      { setErr("PINs do not match."); return; }
+    onComplete({ instName: instName.trim(), instAddr: instAddr.trim(), username: username.trim(), pin });
+  };
+
+  const inp = { width:"100%", padding:"11px 13px", background:"rgba(255,255,255,0.08)", border:"1.5px solid rgba(255,255,255,0.2)", borderRadius:8, color:"#fff", fontSize:14, outline:"none", boxSizing:"border-box", fontFamily:"inherit" };
+
+  return (
+    <div style={{ minHeight:"100vh", background: bgGrad||"#0a1628", display:"flex", alignItems:"center", justifyContent:"center", padding:20, fontFamily:"'Inter','Segoe UI',sans-serif" }}>
+      <div style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.15)", borderRadius:18, padding:"36px 32px", width:"min(94vw,460px)", boxShadow:"0 24px 80px rgba(0,0,0,0.5)" }}>
+        <div style={{ textAlign:"center", marginBottom:24 }}>
+          <div style={{ fontSize:40, marginBottom:10 }}>⚙️</div>
+          <div style={{ fontSize:22, fontWeight:900, color: accentColor||"#c9a84c", marginBottom:4 }}>First-Time Setup</div>
+          <div style={{ color:"rgba(255,255,255,0.55)", fontSize:13 }}>Step {step} of 2 — {step===1?"Institution Details":"Admin Account"}</div>
+        </div>
+        <div style={{ display:"flex", gap:6, marginBottom:24 }}>
+          {[1,2].map(s=>(
+            <div key={s} style={{ flex:1, height:4, borderRadius:2, background: s<=step ? (accentColor||"#c9a84c") : "rgba(255,255,255,0.15)" }} />
+          ))}
+        </div>
+        {step === 1 && (
+          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+            <div>
+              <label style={{ fontSize:11, color:"rgba(255,255,255,0.6)", display:"block", marginBottom:5 }}>{instLabel||"Institution"} Name *</label>
+              <input value={instName} onChange={e=>{setInstName(e.target.value);setErr("");}} placeholder={`e.g. My ${instLabel||"Business"}`} style={inp} />
+            </div>
+            <div>
+              <label style={{ fontSize:11, color:"rgba(255,255,255,0.6)", display:"block", marginBottom:5 }}>Address</label>
+              <input value={instAddr} onChange={e=>setInstAddr(e.target.value)} placeholder="e.g. Kumasi, Ashanti Region" style={inp} />
+            </div>
+            {err && <div style={{ color:"#fca5a5", fontSize:12 }}>{err}</div>}
+            <button onClick={nextStep} style={{ width:"100%", padding:"13px 0", background: accentColor||"#c9a84c", color:"#000", border:"none", borderRadius:10, fontWeight:800, fontSize:15, cursor:"pointer", fontFamily:"inherit", marginTop:4 }}>Next →</button>
+          </div>
+        )}
+        {step === 2 && (
+          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+            <div>
+              <label style={{ fontSize:11, color:"rgba(255,255,255,0.6)", display:"block", marginBottom:5 }}>Admin Username *</label>
+              <input value={username} onChange={e=>{setUsername(e.target.value);setErr("");}} placeholder="e.g. admin" style={inp} />
+            </div>
+            <div>
+              <label style={{ fontSize:11, color:"rgba(255,255,255,0.6)", display:"block", marginBottom:5 }}>Admin PIN * (4–6 digits)</label>
+              <input type="password" inputMode="numeric" maxLength={6} value={pin} onChange={e=>{setPin(e.target.value.replace(/\D/g,""));setErr("");}} placeholder="••••" style={{...inp, letterSpacing:4, textAlign:"center"}} />
+            </div>
+            <div>
+              <label style={{ fontSize:11, color:"rgba(255,255,255,0.6)", display:"block", marginBottom:5 }}>Confirm PIN *</label>
+              <input type="password" inputMode="numeric" maxLength={6} value={pin2} onChange={e=>{setPin2(e.target.value.replace(/\D/g,""));setErr("");}} placeholder="••••" style={{...inp, letterSpacing:4, textAlign:"center"}} />
+            </div>
+            {err && <div style={{ color:"#fca5a5", fontSize:12 }}>{err}</div>}
+            <div style={{ display:"flex", gap:10, marginTop:4 }}>
+              <button onClick={()=>{setStep(1);setErr("");}} style={{ flex:1, padding:"12px 0", background:"transparent", border:"1px solid rgba(255,255,255,0.2)", borderRadius:8, color:"rgba(255,255,255,0.7)", fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>← Back</button>
+              <button onClick={finish} style={{ flex:2, padding:"12px 0", background: accentColor||"#c9a84c", color:"#000", border:"none", borderRadius:8, fontWeight:800, fontSize:14, cursor:"pointer", fontFamily:"inherit" }}>Complete Setup ✓</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function LicenseScreen({ onActivate, appName }) {
   const [mode, setMode] = useState("trial");
   const [key, setKey] = useState("");
@@ -1054,6 +1195,9 @@ function Backup({ db, setDb, settings, toast }) {
 export default function App() {
   const [settings, setSettings] = useState(loadSettings);
   const [license, setLicense] = useState(loadLicense);
+  const [setupDone, setSetupDone] = useState(()=>!!localStorage.getItem("hostel_setup"));
+  const [institution, setInstitution] = useState(()=>loadInstitution("hostelManagerPro_v1_license"));
+  const [showReset, setShowReset] = useState(false);
   // ── Auto-activate from portal launch URL ──────────────────────────────
   useEffect(() => {
     const urlKey = new URLSearchParams(window.location.search).get('key');
